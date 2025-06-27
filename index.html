@@ -217,18 +217,12 @@
         
         <div id="searchSection" class="search-section hidden">
             <div class="form-group">
-                <div class="category-selector">
-                    <label for="categorySelect">Select Knowledge Management Category:</label>
-                    <select id="categorySelect">
-                        <option value="">Choose a category...</option>
-                    </select>
-                </div>
-                
                 <div class="practice-selector">
-                    <label for="practiceSelect">Select Specific Practice:</label>
+                    <label for="practiceSelect">🎯 Select Knowledge Management Practice:</label>
                     <select id="practiceSelect">
-                        <option value="">First select a category above...</option>
+                        <option value="">Choose a practice...</option>
                     </select>
+                    <div id="categoryInfo" class="practice-description hidden"></div>
                 </div>
                 
                 <div id="practiceDescription" class="practice-description hidden"></div>
@@ -266,7 +260,6 @@
         let definitions = {};  // Practice definitions
 
         document.getElementById('excelFile').addEventListener('change', handleFile);
-        document.getElementById('categorySelect').addEventListener('change', updatePracticeDropdown);
         document.getElementById('practiceSelect').addEventListener('change', updateResults);
 
         // Auto-load Excel file if it exists (for persistent deployment)
@@ -422,15 +415,24 @@
         }
 
         function setupInterface() {
-            // Populate category dropdown using definitions as authoritative source
-            const categorySelect = document.getElementById('categorySelect');
-            categorySelect.innerHTML = '<option value="">Choose a category...</option>';
+            // Populate single practice dropdown with category grouping
+            const practiceSelect = document.getElementById('practiceSelect');
+            practiceSelect.innerHTML = '<option value="">Choose a practice...</option>';
             
             Object.keys(categorizedPractices).forEach(category => {
-                const option = document.createElement('option');
-                option.value = category;
-                option.textContent = `${category} (${categorizedPractices[category].length} practices)`;
-                categorySelect.appendChild(option);
+                // Create optgroup for each category
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = `${category} (${categorizedPractices[category].length} practices)`;
+                
+                // Add practices to this category group
+                categorizedPractices[category].forEach(practice => {
+                    const option = document.createElement('option');
+                    option.value = practice.key;
+                    option.textContent = practice.name;
+                    optgroup.appendChild(option);
+                });
+                
+                practiceSelect.appendChild(optgroup);
             });
             
             // Show search section
@@ -438,50 +440,35 @@
             document.getElementById('results').classList.remove('hidden');
         }
 
-        function updatePracticeDropdown() {
-            const selectedCategory = document.getElementById('categorySelect').value;
-            const practiceSelect = document.getElementById('practiceSelect');
-            
-            if (!selectedCategory) {
-                practiceSelect.innerHTML = '<option value="">First select a category above...</option>';
-                return;
-            }
-            
-            practiceSelect.innerHTML = '<option value="">Choose a practice...</option>';
-            
-            const practices = categorizedPractices[selectedCategory] || [];
-            practices.forEach(practice => {
-                const option = document.createElement('option');
-                option.value = practice.key;
-                option.textContent = practice.name;
-                practiceSelect.appendChild(option);
-            });
-        }
-
         function updateResults() {
             const selectedPracticeKey = document.getElementById('practiceSelect').value;
-            
-            // Show practice description
-            const descDiv = document.getElementById('practiceDescription');
-            if (selectedPracticeKey) {
-                const practiceName = selectedPracticeKey.split('::')[1];
-                const definition = definitions[practiceName];
-                if (definition) {
-                    descDiv.innerHTML = `<strong>Definition:</strong> ${definition}`;
-                    descDiv.classList.remove('hidden');
-                } else {
-                    descDiv.classList.add('hidden');
-                }
-            } else {
-                descDiv.classList.add('hidden');
-            }
+            const practiceDescription = document.getElementById('practiceDescription');
+            const categoryInfo = document.getElementById('categoryInfo');
             
             if (!selectedPracticeKey) {
+                practiceDescription.classList.add('hidden');
+                categoryInfo.classList.add('hidden');
+                document.getElementById('statsSection').style.display = 'none';
                 document.getElementById('currentStates').innerHTML = '<div class="status">Select a practice to see results</div>';
                 document.getElementById('pastStates').innerHTML = '<div class="status">Select a practice to see results</div>';
                 document.getElementById('currentCount').textContent = '0';
                 document.getElementById('pastCount').textContent = '0';
                 return;
+            }
+            
+            const [categoryName, practiceName] = selectedPracticeKey.split('::');
+            
+            // Show category context info
+            categoryInfo.innerHTML = `📂 <strong>Category:</strong> ${categoryName} • ${getCategoryDescription(categoryName)}`;
+            categoryInfo.classList.remove('hidden');
+            
+            // Show practice description
+            const definition = definitions[practiceName];
+            if (definition) {
+                practiceDescription.innerHTML = `<strong>📖 Definition:</strong> ${definition}`;
+                practiceDescription.classList.remove('hidden');
+            } else {
+                practiceDescription.classList.add('hidden');
             }
             
             // Get states for current year and past
@@ -516,6 +503,17 @@
             // Update counts
             document.getElementById('currentCount').textContent = currentStates.length;
             document.getElementById('pastCount').textContent = pastStates.length;
+        }
+
+        function getCategoryDescription(category) {
+            const descriptions = {
+                'Knowledge Strategy and Orchestration': 'strategic planning and organizational knowledge management',
+                'Knowledge Capture': 'capturing and documenting organizational knowledge and experiences',
+                'Information Curation and Management': 'organizing, storing, and managing information resources',
+                'Social Learning and Communities': 'collaborative learning and knowledge sharing communities',
+                'Workforce Planning and Development': 'employee development and knowledge transfer programs'
+            };
+            return descriptions[category] || 'knowledge management practices';
         }
 
         function updateStats(currentStates, pastStates) {
