@@ -269,6 +269,40 @@
         document.getElementById('categorySelect').addEventListener('change', updatePracticeDropdown);
         document.getElementById('practiceSelect').addEventListener('change', updateResults);
 
+        // Auto-load Excel file if it exists (for persistent deployment)
+        window.addEventListener('load', function() {
+            tryAutoLoadExcel();
+        });
+
+        function tryAutoLoadExcel() {
+            // Try to automatically load the Excel file if deployed with data
+            fetch('KM Activities by State.xlsx')
+                .then(response => {
+                    if (response.ok) {
+                        return response.arrayBuffer();
+                    }
+                    throw new Error('Excel file not found - manual upload required');
+                })
+                .then(data => {
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    processWorkbook(workbook);
+                    
+                    // Hide upload section and show that data was auto-loaded
+                    document.querySelector('.upload-section').style.display = 'none';
+                    const autoLoadMsg = document.createElement('div');
+                    autoLoadMsg.innerHTML = `
+                        <div style="background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            ✅ <strong>Data loaded successfully!</strong> The latest KM practices data has been automatically loaded.
+                        </div>
+                    `;
+                    document.querySelector('.container').insertBefore(autoLoadMsg, document.querySelector('.search-section'));
+                })
+                .catch(error => {
+                    console.log('Auto-load failed, manual upload required:', error.message);
+                    // Keep upload section visible for manual upload
+                });
+        }
+
         function handleFile(e) {
             const file = e.target.files[0];
             if (!file) return;
