@@ -134,13 +134,6 @@
         .stat-item:hover {
             background: #fff8e1;
             border-color: #ff9800;
-        }
-        
-        .stat-item.expandable {
-            cursor: pointer;
-        }
-        
-        .stat-item.expandable:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
@@ -156,6 +149,7 @@
             font-size: 12px;
             max-height: 150px;
             overflow-y: auto;
+            line-height: 1.4;
         }
         
         .stat-detail.expanded {
@@ -169,6 +163,23 @@
             font-weight: bold;
         }
         
+        .stat-detail p {
+            margin: 0 0 8px 0;
+            color: #6c757d;
+            font-size: 12px;
+        }
+        
+        .stat-detail ul {
+            margin: 5px 0 0 15px;
+            padding: 0;
+            color: #6c757d;
+            font-size: 11px;
+        }
+        
+        .stat-detail li {
+            margin-bottom: 3px;
+        }
+        
         .missing-state {
             display: inline-block;
             background: #e9ecef;
@@ -177,6 +188,16 @@
             border-radius: 3px;
             font-size: 11px;
             color: #495057;
+        }
+        
+        .state-list-compact {
+            display: inline-block;
+            background: #e3f2fd;
+            padding: 2px 6px;
+            margin: 2px;
+            border-radius: 3px;
+            font-size: 11px;
+            color: #1565c0;
         }
         
         .expand-indicator {
@@ -621,51 +642,110 @@
             const newStates = validCurrentStates.filter(state => !validPastStates.includes(state));
             
             statsGrid.innerHTML = `
-                <div class="stat-item">
+                <div class="stat-item" onclick="toggleStatDetail('currently-reported')">
                     <div class="stat-number">${currentStates.length}</div>
-                    <div class="stat-label">Currently Reported</div>
+                    <div class="stat-label">Currently Reported <span class="expand-indicator">▼</span></div>
+                    <div id="currently-reported" class="stat-detail">
+                        <h5>Currently Reported (2024)</h5>
+                        <p>States that reported implementing this practice in the 2024 survey.</p>
+                        ${currentStates.length > 0 ? `
+                            <div>
+                                ${currentStates.sort().map(state => `<span class="state-list-compact">${state}</span>`).join('')}
+                            </div>
+                        ` : '<p><em>No states currently report this practice.</em></p>'}
+                    </div>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item" onclick="toggleStatDetail('previously-reported')">
                     <div class="stat-number">${pastStates.length}</div>
-                    <div class="stat-label">Previously Reported</div>
+                    <div class="stat-label">Previously Reported <span class="expand-indicator">▼</span></div>
+                    <div id="previously-reported" class="stat-detail">
+                        <h5>Previously Reported (2019-2023)</h5>
+                        <p>States that reported implementing this practice in the prior years survey.</p>
+                        ${pastStates.length > 0 ? `
+                            <div>
+                                ${pastStates.sort().map(state => `<span class="state-list-compact">${state}</span>`).join('')}
+                            </div>
+                        ` : '<p><em>No states previously reported this practice.</em></p>'}
+                    </div>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item" onclick="toggleStatDetail('adoption-rate')">
                     <div class="stat-number">${currentPercentage}%</div>
-                    <div class="stat-label">Current Adoption Rate</div>
+                    <div class="stat-label">Current Adoption Rate <span class="expand-indicator">▼</span></div>
+                    <div id="adoption-rate" class="stat-detail">
+                        <h5>Current Adoption Rate</h5>
+                        <p>Percentage of states that provided 2024 data who report implementing this practice.</p>
+                        <ul>
+                            <li><strong>${currentStates.length}</strong> states report this practice</li>
+                            <li><strong>${currentRespondingStates}</strong> states provided 2024 data</li>
+                            <li><strong>${currentRespondingStates - currentStates.length}</strong> responding states do not report this practice</li>
+                        </ul>
+                    </div>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item" onclick="toggleStatDetail('new-adopters')">
                     <div class="stat-number">${newStates.length}</div>
-                    <div class="stat-label">New Adopters</div>
+                    <div class="stat-label">New Adopters <span class="expand-indicator">▼</span></div>
+                    <div id="new-adopters" class="stat-detail">
+                        <h5>New Adopters</h5>
+                        <p>States that report this practice in 2024 but did not report it in prior years. Only includes states that provided data in both periods.</p>
+                        ${newStates.length > 0 ? `
+                            <div>
+                                ${newStates.sort().map(state => `<span class="state-list-compact">${state}</span>`).join('')}
+                            </div>
+                        ` : '<p><em>No new adopters for this practice.</em></p>'}
+                        <p><small>Based on ${statesInBothPeriods.length} states with data in both periods.</small></p>
+                    </div>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item" onclick="toggleStatDetail('discontinued')">
                     <div class="stat-number">${stoppedStates.length}</div>
-                    <div class="stat-label">Discontinued</div>
+                    <div class="stat-label">Discontinued <span class="expand-indicator">▼</span></div>
+                    <div id="discontinued" class="stat-detail">
+                        <h5>Discontinued</h5>
+                        <p>States that reported this practice in prior years but do not report it in 2024. Only includes states that provided data in both periods.</p>
+                        ${stoppedStates.length > 0 ? `
+                            <div>
+                                ${stoppedStates.sort().map(state => `<span class="state-list-compact">${state}</span>`).join('')}
+                            </div>
+                        ` : '<p><em>No states discontinued this practice.</em></p>'}
+                        <p><small>Based on ${statesInBothPeriods.length} states with data in both periods.</small></p>
+                    </div>
                 </div>
-                <div class="stat-item expandable" onclick="toggleStatDetail('current-data')">
+                <div class="stat-item" onclick="toggleStatDetail('current-data')">
                     <div class="stat-number">${currentRespondingStates}</div>
                     <div class="stat-label">States Providing Current Data <span class="expand-indicator">▼</span></div>
                     <div id="current-data" class="stat-detail">
-                        <h5>Missing from 2024 data (${missingCurrentStates.length} states):</h5>
-                        ${missingCurrentStates.length > 0 ? 
-                            missingCurrentStates.map(state => `<span class="missing-state">${state}</span>`).join('') :
-                            '<span style="color: #28a745; font-style: italic;">All states provided current data</span>'
-                        }
+                        <h5>States Providing Current Data (2024)</h5>
+                        <p>States that submitted responses for the 2024 survey.</p>
+                        ${missingCurrentStates.length > 0 ? `
+                            <p><strong>Missing from 2024 data (${missingCurrentStates.length} states):</strong></p>
+                            <div>${missingCurrentStates.map(state => `<span class="missing-state">${state}</span>`).join('')}</div>
+                        ` : '<p style="color: #28a745; font-style: italic;">✓ All states provided current data</p>'}
                     </div>
                 </div>
-                <div class="stat-item expandable" onclick="toggleStatDetail('prior-data')">
+                <div class="stat-item" onclick="toggleStatDetail('prior-data')">
                     <div class="stat-number">${pastRespondingStates}</div>
                     <div class="stat-label">States Providing Prior Data <span class="expand-indicator">▼</span></div>
                     <div id="prior-data" class="stat-detail">
-                        <h5>Missing from prior years data (${missingPastStates.length} states):</h5>
-                        ${missingPastStates.length > 0 ? 
-                            missingPastStates.map(state => `<span class="missing-state">${state}</span>`).join('') :
-                            '<span style="color: #28a745; font-style: italic;">All states provided prior data</span>'
-                        }
+                        <h5>States Providing Prior Data (2019-2023)</h5>
+                        <p>States that submitted responses for the prior years survey.</p>
+                        ${missingPastStates.length > 0 ? `
+                            <p><strong>Missing from prior years data (${missingPastStates.length} states):</strong></p>
+                            <div>${missingPastStates.map(state => `<span class="missing-state">${state}</span>`).join('')}</div>
+                        ` : '<p style="color: #28a745; font-style: italic;">✓ All states provided prior data</p>'}
                     </div>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item" onclick="toggleStatDetail('trend-analysis')">
                     <div class="stat-number">${statesInBothPeriods.length}</div>
-                    <div class="stat-label">Valid for Trend Analysis</div>
+                    <div class="stat-label">Valid for Trend Analysis <span class="expand-indicator">▼</span></div>
+                    <div id="trend-analysis" class="stat-detail">
+                        <h5>Valid for Trend Analysis</h5>
+                        <p>States that provided data in both the current (2024) and prior years surveys. Only these states can be reliably compared for trends.</p>
+                        <ul>
+                            <li><strong>${responseData.current.length}</strong> states provided 2024 data</li>
+                            <li><strong>${responseData.past.length}</strong> states provided prior years data</li>
+                            <li><strong>${statesInBothPeriods.length}</strong> states provided data in both periods</li>
+                        </ul>
+                        <p><small>New Adopters and Discontinued calculations are based only on these ${statesInBothPeriods.length} states.</small></p>
+                    </div>
                 </div>
             `;
             
