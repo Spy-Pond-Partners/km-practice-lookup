@@ -127,6 +127,62 @@
             background: white;
             border-radius: 4px;
             border: 1px solid #ffcc02;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-item:hover {
+            background: #fff8e1;
+            border-color: #ff9800;
+        }
+        
+        .stat-item.expandable {
+            cursor: pointer;
+        }
+        
+        .stat-item.expandable:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .stat-detail {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            display: none;
+            text-align: left;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .stat-detail.expanded {
+            display: block;
+        }
+        
+        .stat-detail h5 {
+            margin: 0 0 8px 0;
+            color: #495057;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        
+        .missing-state {
+            display: inline-block;
+            background: #e9ecef;
+            padding: 2px 6px;
+            margin: 2px;
+            border-radius: 3px;
+            font-size: 11px;
+            color: #495057;
+        }
+        
+        .expand-indicator {
+            font-size: 10px;
+            color: #6c757d;
+            margin-left: 5px;
         }
         
         .stat-number {
@@ -262,6 +318,7 @@
             current: [],  // States that provided current data
             past: []      // States that provided prior data
         };
+        let allStates = [];  // All states in the dataset
 
         document.getElementById('excelFile').addEventListener('change', handleFile);
         document.getElementById('practiceSelect').addEventListener('change', updateResults);
@@ -403,6 +460,11 @@
                 if (stateName && stateName.toString().trim()) {
                     const cleanStateName = stateName.toString().trim();
                     
+                    // Add to all states list if not already there
+                    if (!allStates.includes(cleanStateName)) {
+                        allStates.push(cleanStateName);
+                    }
+                    
                     // Check "No Response" column (column B = index 1)
                     const noResponseCell = worksheet[XLSX.utils.encode_cell({r: row, c: 1})];
                     const noResponseValue = noResponseCell ? noResponseCell.v : '';
@@ -538,6 +600,10 @@
             const currentRespondingStates = responseData.current.length;
             const pastRespondingStates = responseData.past.length;
             
+            // Find missing states
+            const missingCurrentStates = allStates.filter(state => !responseData.current.includes(state));
+            const missingPastStates = allStates.filter(state => !responseData.past.includes(state));
+            
             const currentPercentage = currentRespondingStates > 0 ? Math.round((currentStates.length / currentRespondingStates) * 100) : 0;
             const pastPercentage = pastRespondingStates > 0 ? Math.round((pastStates.length / pastRespondingStates) * 100) : 0;
             
@@ -575,13 +641,27 @@
                     <div class="stat-number">${stoppedStates.length}</div>
                     <div class="stat-label">Discontinued</div>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item expandable" onclick="toggleStatDetail('current-data')">
                     <div class="stat-number">${currentRespondingStates}</div>
-                    <div class="stat-label">States Providing Current Data</div>
+                    <div class="stat-label">States Providing Current Data <span class="expand-indicator">▼</span></div>
+                    <div id="current-data" class="stat-detail">
+                        <h5>Missing from 2024 data (${missingCurrentStates.length} states):</h5>
+                        ${missingCurrentStates.length > 0 ? 
+                            missingCurrentStates.map(state => `<span class="missing-state">${state}</span>`).join('') :
+                            '<span style="color: #28a745; font-style: italic;">All states provided current data</span>'
+                        }
+                    </div>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item expandable" onclick="toggleStatDetail('prior-data')">
                     <div class="stat-number">${pastRespondingStates}</div>
-                    <div class="stat-label">States Providing Prior Data</div>
+                    <div class="stat-label">States Providing Prior Data <span class="expand-indicator">▼</span></div>
+                    <div id="prior-data" class="stat-detail">
+                        <h5>Missing from prior years data (${missingPastStates.length} states):</h5>
+                        ${missingPastStates.length > 0 ? 
+                            missingPastStates.map(state => `<span class="missing-state">${state}</span>`).join('') :
+                            '<span style="color: #28a745; font-style: italic;">All states provided prior data</span>'
+                        }
+                    </div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-number">${statesInBothPeriods.length}</div>
@@ -590,6 +670,19 @@
             `;
             
             document.getElementById('statsSection').style.display = 'block';
+        }
+
+        function toggleStatDetail(detailId) {
+            const detail = document.getElementById(detailId);
+            const indicator = detail.previousElementSibling.querySelector('.expand-indicator');
+            
+            if (detail.classList.contains('expanded')) {
+                detail.classList.remove('expanded');
+                indicator.textContent = '▼';
+            } else {
+                detail.classList.add('expanded');
+                indicator.textContent = '▲';
+            }
         }
     </script>
 </body>
