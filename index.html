@@ -236,14 +236,14 @@
         
         <div id="results" class="results hidden">
             <div class="result-card">
-                <h3>🟢 Currently Doing (2024) <span id="currentCount" class="count">0</span></h3>
+                <h3>🟢 Currently Reported (2024) <span id="currentCount" class="count">0</span></h3>
                 <div id="currentStates" class="state-list">
                     <div class="status">Select a practice to see results</div>
                 </div>
             </div>
             
             <div class="result-card">
-                <h3>📅 Done Previously <span id="pastCount" class="count">0</span></h3>
+                <h3>📅 Previously Reported <span id="pastCount" class="count">0</span></h3>
                 <div id="pastStates" class="state-list">
                     <div class="status">Select a practice to see results</div>
                 </div>
@@ -258,6 +258,10 @@
         };
         let categorizedPractices = {};  // Organized by category
         let definitions = {};  // Practice definitions
+        let responseData = {
+            current: [],  // States that provided current data
+            past: []      // States that provided prior data
+        };
 
         document.getElementById('excelFile').addEventListener('change', handleFile);
         document.getElementById('practiceSelect').addEventListener('change', updateResults);
@@ -285,7 +289,7 @@
                     const autoLoadMsg = document.createElement('div');
                     autoLoadMsg.innerHTML = `
                         <div style="background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                            ✅ <strong>Data loaded successfully!</strong> The latest KM practices data has been automatically loaded.
+                            ✅ <strong>Data loaded successfully!</strong> KM Activities by State.xlsx has been automatically loaded.
                         </div>
                     `;
                     document.querySelector('.container').insertBefore(autoLoadMsg, document.querySelector('.search-section'));
@@ -397,8 +401,19 @@
                 const stateName = stateCell ? stateCell.v : '';
                 
                 if (stateName && stateName.toString().trim()) {
-                    // Check each practice column
-                    for (let col = 1; col <= range.e.c; col++) {
+                    const cleanStateName = stateName.toString().trim();
+                    
+                    // Check "No Response" column (column B = index 1)
+                    const noResponseCell = worksheet[XLSX.utils.encode_cell({r: row, c: 1})];
+                    const noResponseValue = noResponseCell ? noResponseCell.v : '';
+                    
+                    // If "No Response" is NOT 1, then this state provided data
+                    if (noResponseValue !== 1 && noResponseValue !== '1') {
+                        responseData[timeframe].push(cleanStateName);
+                    }
+                    
+                    // Check each practice column (starting from column 2 since column 1 is "No Response")
+                    for (let col = 2; col <= range.e.c; col++) {
                         const valueCell = worksheet[XLSX.utils.encode_cell({r: row, c: col})];
                         const value = valueCell ? valueCell.v : '';
                         
@@ -406,7 +421,7 @@
                         if (value === 1 || value === '1') {
                             const practiceKey = practiceColumnMap[col];
                             if (practiceKey) {
-                                kmData[timeframe][practiceKey].push(stateName.toString().trim());
+                                kmData[timeframe][practiceKey].push(cleanStateName);
                             }
                         }
                     }
@@ -486,7 +501,7 @@
                     .map(state => `<div class="state-item">${state}</div>`)
                     .join('');
             } else {
-                currentDiv.innerHTML = '<div class="status">No states currently doing this practice</div>';
+                currentDiv.innerHTML = '<div class="status">No states currently reporting this practice</div>';
             }
             
             // Update past results
@@ -497,7 +512,7 @@
                     .map(state => `<div class="state-item">${state}</div>`)
                     .join('');
             } else {
-                pastDiv.innerHTML = '<div class="status">No states have done this practice previously</div>';
+                pastDiv.innerHTML = '<div class="status">No states previously reported this practice</div>';
             }
             
             // Update counts
@@ -507,39 +522,50 @@
 
         function getCategoryDescription(category) {
             const descriptions = {
-                'Knowledge Strategy and Orchestration': 'strategic planning and organizational knowledge management',
-                'Knowledge Capture': 'capturing and documenting organizational knowledge and experiences',
-                'Information Curation and Management': 'organizing, storing, and managing information resources',
-                'Social Learning and Communities': 'collaborative learning and knowledge sharing communities',
-                'Workforce Planning and Development': 'employee development and knowledge transfer programs'
+                'Knowledge Strategy and Orchestration': 'Practices to plan, coordinate, and support KM activities',
+                'Knowledge Capture': 'Practices to identify, capture, and share critical, at-risk knowledge that has not yet been documented',
+                'Information Curation and Management': 'Practices to create, maintain, and enable access, findability, and discovery of information that employees need to do their jobs efficiently and effectively',
+                'Social Learning and Communities': 'Practices involving deliberate activities to cultivate a learning culture and facilitate collaboration and knowledge sharing within and across organizational units',
+                'Workforce Planning and Development': 'Practices for integrating KM with the agency\'s workforce strategic planning, succession management, and employee training and development activities'
             };
             return descriptions[category] || 'knowledge management practices';
         }
 
         function updateStats(currentStates, pastStates) {
             const statsGrid = document.getElementById('statsGrid');
-            const totalStates = 50; // Approximate number of states
-            const currentPercentage = Math.round((currentStates.length / totalStates) * 100);
-            const pastPercentage = Math.round((pastStates.length / totalStates) * 100);
             
-            // Find states that stopped doing the practice
-            const stoppedStates = pastStates.filter(state => !currentStates.includes(state));
+            // Use only states that provided data for calculations
+            const currentRespondingStates = responseData.current.length;
+            const pastRespondingStates = responseData.past.length;
             
-            // Find states that are new to the practice
-            const newStates = currentStates.filter(state => !pastStates.includes(state));
+            const currentPercentage = currentRespondingStates > 0 ? Math.round((currentStates.length / currentRespondingStates) * 100) : 0;
+            const pastPercentage = pastRespondingStates > 0 ? Math.round((pastStates.length / pastRespondingStates) * 100) : 0;
+            
+            // For new adopters and discontinued, only count states that provided data in BOTH periods
+            const statesInBothPeriods = responseData.current.filter(state => responseData.past.includes(state));
+            
+            // Filter to only include states that responded in both periods
+            const validCurrentStates = currentStates.filter(state => statesInBothPeriods.includes(state));
+            const validPastStates = pastStates.filter(state => statesInBothPeriods.includes(state));
+            
+            // Find states that stopped doing the practice (only among states that responded both times)
+            const stoppedStates = validPastStates.filter(state => !validCurrentStates.includes(state));
+            
+            // Find states that are new to the practice (only among states that responded both times)
+            const newStates = validCurrentStates.filter(state => !validPastStates.includes(state));
             
             statsGrid.innerHTML = `
                 <div class="stat-item">
                     <div class="stat-number">${currentStates.length}</div>
-                    <div class="stat-label">Currently Active</div>
+                    <div class="stat-label">Currently Reported</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-number">${pastStates.length}</div>
-                    <div class="stat-label">Previously Active</div>
+                    <div class="stat-label">Previously Reported</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-number">${currentPercentage}%</div>
-                    <div class="stat-label">Current Adoption</div>
+                    <div class="stat-label">Current Adoption Rate</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-number">${newStates.length}</div>
@@ -550,8 +576,16 @@
                     <div class="stat-label">Discontinued</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-number">${totalStates}</div>
-                    <div class="stat-label">Total States</div>
+                    <div class="stat-number">${currentRespondingStates}</div>
+                    <div class="stat-label">States Providing Current Data</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">${pastRespondingStates}</div>
+                    <div class="stat-label">States Providing Prior Data</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">${statesInBothPeriods.length}</div>
+                    <div class="stat-label">Valid for Trend Analysis</div>
                 </div>
             `;
             
